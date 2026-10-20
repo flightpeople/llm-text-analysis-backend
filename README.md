@@ -52,6 +52,10 @@ curl -X POST http://localhost:8080/api/analysis/summarize \
   -d '{"text":"Spring Boot 是由 Pivotal 团队提供的全新框架，其设计目的是用来简化新 Spring 应用的初始搭建以及开发过程。"}'
 ```
 
+**Windows 一键验证**：保持服务窗口打开，双击项目里的 `verify.bat`，会自动发送测试请求并显示 JSON 结果。
+
+> 注意：服务运行期间启动窗口必须保持打开（最后一行显示 `Started Application`），关闭窗口即停止服务。PowerShell 中 `curl` 是 `Invoke-WebRequest` 的别名，参数语法与真 curl 不同，直接用 `verify.bat` 或 `Invoke-RestMethod`。
+
 ## API 一览
 
 | 方法 | 路径 | 说明 |
