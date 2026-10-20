@@ -65,6 +65,18 @@ curl -X POST http://localhost:8080/api/analysis/summarize \
 | POST | /api/analysis/translate | 翻译（text + targetLang） |
 | POST | /api/analysis/batch | 批量分析（texts + type） |
 
+## 真实调用示例
+
+请求 /api/analysis/summarize，glm-4-flash 实际返回：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": "Spring Boot 是一个为 Java 开发者设计的框架，通过自动化配置和约定优于配置的原则，简化企业级 Java 应用的开发过程。"
+}
+```
+
 ## 测试
 
 ```bash
@@ -76,7 +88,7 @@ mvn test
 - 熔断器：状态机全路径（CLOSED → OPEN → HALF_OPEN → CLOSED / 重新打开）
 - 控制器层：MockMvc 验证统一响应格式与参数校验
 
-**已验证**：JDK 21 + Maven 3.9.9（经 Maven Wrapper）环境下 `mvn test` 全量通过（17 个用例，0 失败）；应用实际启动并完成接口冒烟测试（正常请求走通完整调用链、假 key 返回结构化 503、空文本返回 400 参数校验）。
+**已验证**：JDK 21 + Maven 3.9.9（经 Maven Wrapper）环境下 `mvn test` 全量通过（17 个用例，0 失败）；应用实际启动并完成接口冒烟测试（正常请求走通完整调用链、假 key 返回结构化 503、空文本返回 400 参数校验）；已用真实智谱 API Key 跑通端到端调用（glm-4-flash 返回真实摘要）。
 
 ## 面试讲解要点
 
