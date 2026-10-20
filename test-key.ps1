@@ -1,6 +1,5 @@
 # Test a Zhipu (bigmodel) API key directly against the API.
-# Purpose: separate KEY problems from APP problems.
-# If this returns 200, the key is valid and the issue is how it is passed to the app.
+# Guards against the #1 mistake: pasting the MASKED key from the list page.
 
 $uri = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 
@@ -8,47 +7,52 @@ $key = Read-Host "Paste your Zhipu API Key"
 $key = $key.Trim()
 
 if ($key -eq "") {
-    Write-Host "ERROR: empty key, nothing to test." -ForegroundColor Red
+    Write-Host "ERROR: empty key." -ForegroundColor Red
+    exit 1
+}
+if ($key.Contains("...")) {
+    Write-Host ""
+    Write-Host "ERROR: This is the MASKED key from the list page, not a real key." -ForegroundColor Red
+    Write-Host "The full key is shown ONCE when you create it. Create a new key and copy it from the popup." -ForegroundColor Yellow
     exit 1
 }
 
-$body = @{
-    model    = "glm-4-flash"
-    messages = @(@{ role = "user"; content = "Say OK" })
-} | ConvertTo-Json -Depth 5
+$body = '{"model":"glm-4-flash","messages":[{"role":"user","content":"Say OK"}]}'
 
-$headers = @{ Authorization = "Bearer $key" }
+$handler = New-Object System.Net.Http.HttpClientHandler
+$handler.UseProxy = $false
+$client = New-Object System.Net.Http.HttpClient($handler)
+$client.Timeout = [TimeSpan]::FromSeconds(60)
+
+$req = New-Object System.Net.Http.HttpRequestMessage("POST", $uri)
+$req.Headers.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", $key)
+$req.Content = New-Object System.Net.Http.StringContent($body, [System.Text.Encoding]::UTF8, "application/json")
 
 Write-Host ""
-Write-Host "Calling Zhipu API directly with your key..." -ForegroundColor Cyan
+Write-Host "Calling Zhipu API directly..." -ForegroundColor Cyan
 
 try {
-    $r = Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -ContentType "application/json" -Body $body -TimeoutSec 60
+    $resp = $client.SendAsync($req).Result
+    $status = [int]$resp.StatusCode
+    $text = $resp.Content.ReadAsStringAsync().Result
     Write-Host ""
-    Write-Host "RESULT: HTTP 200 - THE KEY IS VALID" -ForegroundColor Green
-    Write-Host "Model replied: $($r.choices[0].message.content)" -ForegroundColor Green
+    Write-Host "HTTP $status" -ForegroundColor $(if ($status -eq 200) { "Green" } else { "Red" })
+    Write-Host "Body: $text" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "=> The key works. The app 401 was an env var problem: re-run start.bat and paste the key when prompted." -ForegroundColor Green
+    if ($status -eq 200) {
+        Write-Host "RESULT: HTTP 200 - THE KEY IS VALID" -ForegroundColor Green
+        Write-Host "=> Now re-run start.bat, paste the same full key, then verify.bat." -ForegroundColor Green
+    } else {
+        Write-Host "RESULT: HTTP $status - THE KEY WAS REJECTED" -ForegroundColor Red
+        Write-Host "Checklist:" -ForegroundColor Yellow
+        Write-Host "  1. Make sure you pasted the FULL key (format: 32chars.4chars, exactly one dot)" -ForegroundColor Yellow
+        Write-Host "  2. Real-name verification completed in the console" -ForegroundColor Yellow
+        Write-Host "  3. If the key was just created, wait a few minutes and retry" -ForegroundColor Yellow
+    }
 }
 catch {
-    $resp = $_.Exception.Response
-    $status = 0
-    if ($resp) { $status = [int]$resp.StatusCode }
-    Write-Host ""
-    Write-Host "RESULT: HTTP $status - THE KEY WAS REJECTED" -ForegroundColor Red
-    if ($resp) {
-        try {
-            $stream = $resp.GetResponseStream()
-            $reader = New-Object System.IO.StreamReader($stream)
-            $errBody = $reader.ReadToEnd()
-            Write-Host "Zhipu says: $errBody" -ForegroundColor Yellow
-        }
-        catch {}
-    }
-    Write-Host ""
-    Write-Host "Checklist:" -ForegroundColor Yellow
-    Write-Host "  1. Key copied completely, no leading/trailing spaces" -ForegroundColor Yellow
-    Write-Host "  2. Key created on the API Keys page of open.bigmodel.cn (not the trial center)" -ForegroundColor Yellow
-    Write-Host "  3. Real-name verification completed in the console (required before API calls)" -ForegroundColor Yellow
-    Write-Host "  4. If key was just created, wait a few minutes and retry" -ForegroundColor Yellow
+    Write-Host "REQUEST FAILED: $($_.Exception.Message)" -ForegroundColor Red
+}
+finally {
+    $client.Dispose()
 }
